@@ -2,15 +2,24 @@
   "name": "claude-agents-tui",
   "version": "0.1.0",
   "description": "Plain terminal view of running Claude Code sessions and their subagents",
+  "keywords": ["claude", "claude-code", "agents", "subagents", "terminal", "tui", "cli", "monitor"],
   "license": "MIT",
-  "bin": { "claude-agents": "./out/cli.js" },
-  "main": "./out/cli.js",
+  "author": "AchiboldThanyani",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AchiboldThanyani/claude-agents-tui.git"
+  },
+  "homepage": "https://github.com/AchiboldThanyani/claude-agents-tui#readme",
+  "bugs": { "url": "https://github.com/AchiboldThanyani/claude-agents-tui/issues" },
+  "bin": { "claude-agents": "out/cli.js" },
+  "files": ["out/*.js"],
   "engines": { "node": ">=18" },
   "scripts": {
     "build": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "start": "node out/cli.js",
-    "test": "tsc -p ./ && node --test \"out/test/*.test.js\""
+    "test": "tsc -p ./ && node --test \"out/test/*.test.js\"",
+    "prepublishOnly": "npm test"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

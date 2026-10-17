@@ -100,7 +100,10 @@ export function buildRows(sessions: SessionInfo[], now: number, width: number, s
     const st = s.state;
     const label = s.status === 'done' ? 'your turn' : s.status;
     const title = st.title ?? st.firstPrompt ?? s.id.slice(0, 8);
-    const right = `${fit(s.project, 18)} ${fit(ago(now - st.mtime), 9)} ${shortModel(st.model)}`;
+    const model = shortModel(st.model);
+    // Status (12) + title (min 10) + gaps; the project column gives way on narrow terminals.
+    const projectW = Math.max(4, Math.min(18, width - 12 - 10 - 1 - 12 - model.length - 1));
+    const right = `${fit(s.project, projectW)} ${fit(ago(now - st.mtime), 11)} ${model}`;
     const agents = s.agentCount ? ` (${s.agentCount} agent${s.agentCount === 1 ? '' : 's'})` : '';
     const titleW = Math.max(10, width - 12 - right.length - 1);
 

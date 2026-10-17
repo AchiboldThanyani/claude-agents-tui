@@ -25,6 +25,15 @@ Claude agents · 1 sessions · 2 agents running            ~/.claude/projects  2
 ## Install
 
 ```sh
+npm install -g claude-agents-tui
+claude-agents
+```
+
+Or run it once without installing: `npx claude-agents-tui`.
+
+From source:
+
+```sh
 npm install
 npm run build
 npm link          # optional: puts `claude-agents` on your PATH
@@ -79,3 +88,6 @@ files), filtering, rendering widths and the CLI end to end.
 
 These files are an internal Claude Code format, not a public API, so a future
 Claude Code release may need small parser updates.
+
+This is an independent project and is not affiliated with or endorsed by
+Anthropic.
