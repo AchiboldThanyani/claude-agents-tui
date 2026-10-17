@@ -101,7 +101,7 @@ function describeTool(name: string, input: Record<string, unknown> | undefined):
   const arg =
     i.description ?? i.command ?? i.file_path ?? i.path ?? i.pattern ?? i.url ?? i.query ?? i.prompt ?? i.skill;
   if (typeof arg !== 'string' || !arg) return name;
-  const shown = typeof i.file_path === 'string' && arg === i.file_path ? path.basename(arg) : arg;
+  const shown = typeof i.file_path === 'string' && arg === i.file_path ? path.win32.basename(arg) : arg;
   return `${name} ${oneLine(shown, 80)}`;
 }
 

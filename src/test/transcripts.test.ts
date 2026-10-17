@@ -119,6 +119,12 @@ describe('sessions', () => {
     assert.equal(s.status, 'done');
   });
 
+  test('project name works for Windows and POSIX cwds on any OS', () => {
+    fake.writeSession('a', 's1', [userPrompt('one', iso(now), 'C:\\work\\win-app\\')]);
+    fake.writeSession('b', 's2', [userPrompt('two', iso(now), '/home/me/linux-app/')]);
+    assert.deepEqual(scan().map((s) => s.project).sort(), ['linux-app', 'win-app']);
+  });
+
   test('falls back to the first prompt when there is no title', () => {
     fake.writeSession('proj', 's1', [userPrompt('fix the login bug', iso(now))]);
     assert.equal(only(scan()).state.firstPrompt, 'fix the login bug');
