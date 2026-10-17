@@ -1,5 +1,7 @@
 # claude-agents-tui
 
+[![Tests](https://github.com/AchiboldThanyani/claude-agents-tui/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/AchiboldThanyani/claude-agents-tui/actions/workflows/test.yml)
+
 A plain terminal view of your running Claude Code sessions and their subagents.
 
 It is read-only: it reads the transcript files Claude Code already writes to
