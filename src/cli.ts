@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
-import { TranscriptStore } from './transcripts';
+import { isActive, SessionInfo, TranscriptStore } from './transcripts';
 import { resolveRoot } from './root';
-import { buildRows, fit, header, paint, Row, Style } from './render';
+import { buildRows, detailBox, emptyState, footer, header, Row, rule, selectRow, Style, unselectedRow } from './render';
 
 const HELP = `claude-agents — watch Claude Code sessions and their subagents
 
@@ -11,12 +11,12 @@ Usage: claude-agents [options]
   --since <dur>     only show activity newer than this (default 1h; e.g. 30m, 6h, 2d)
   --project <text>  only show sessions whose project folder contains <text>
   --root <dir>      transcript folder (default $CLAUDE_CONFIG_DIR/projects or ~/.claude/projects;
-                    in WSL, falls back to the Windows C:Users<you>.claudeprojects)
+                    in WSL, falls back to the Windows C:\\Users\\<you>\\.claude\\projects)
   --once            print one snapshot and exit
   --no-color        disable colors (also honours NO_COLOR)
   -h, --help        show this help
 
-Keys: ↑/↓ or j/k select · enter show/hide activity · q quit
+Keys: ↑/↓ or j/k select · enter show/hide details · q quit
 `;
 
 interface Options {
@@ -63,10 +63,9 @@ function parseArgs(argv: string[]): Options {
   return opts;
 }
 
-function snapshot(store: TranscriptStore, opts: Options, width: number, style: Style) {
+function scan(store: TranscriptStore, opts: Options): { now: number; sessions: SessionInfo[] } {
   const now = Date.now();
-  const sessions = store.scan(now - opts.sinceMs, opts.project, now);
-  return { now, sessions, rows: buildRows(sessions, now, width, style) };
+  return { now, sessions: store.scan(now - opts.sinceMs, opts.project, now) };
 }
 
 /** What to say when there is nothing to show. */
@@ -76,11 +75,11 @@ function emptyMessage(opts: Options): string {
 }
 
 function runOnce(opts: Options): void {
-  const store = new TranscriptStore(opts.root);
   const width = process.stdout.columns || Number(process.env.COLUMNS) || 120;
-  const style = { color: opts.color && !!process.stdout.isTTY };
-  const { now, sessions, rows } = snapshot(store, opts, width, style);
-  const lines = [header(sessions, opts.root, now, width, style), ''];
+  const style: Style = { color: opts.color && !!process.stdout.isTTY };
+  const { now, sessions } = scan(new TranscriptStore(opts.root), opts);
+  const rows = buildRows(sessions, now, width, style);
+  const lines = [header(sessions, opts.root, now, width, style), rule(width, style)];
   if (!rows.length) lines.push(emptyMessage(opts));
   lines.push(...rows.map((r) => r.text));
   process.stdout.write(lines.join('\n') + '\n');
@@ -88,55 +87,50 @@ function runOnce(opts: Options): void {
 
 function runLive(opts: Options): void {
   const out = process.stdout;
-  const style = { color: opts.color };
   const store = new TranscriptStore(opts.root);
+  let snap = scan(store, opts);
   let rows: Row[] = [];
   let selected = 0;
   let selectedKey = '';
   let showDetail = false;
   let scroll = 0;
-  let lastFrame = { now: 0, sessions: [] as ReturnType<typeof snapshot>['sessions'] };
-
-  const refresh = () => {
-    const snap = snapshot(store, opts, out.columns || 100, style);
-    rows = snap.rows;
-    lastFrame = snap;
-    // Keep the same row selected as the tree changes underneath it.
-    const idx = rows.findIndex((r) => r.key === selectedKey);
-    selected = idx >= 0 ? idx : Math.min(selected, Math.max(0, rows.length - 1));
-    draw();
-  };
+  let frame = 0;
 
   const draw = () => {
     const width = out.columns || 100;
     const height = out.rows || 30;
-    const lines: string[] = [header(lastFrame.sessions, opts.root, lastFrame.now, width, style), ''];
+    const style: Style = { color: opts.color, frame };
+    // Rebuilt on every frame so the spinner turns and elapsed times tick.
+    rows = buildRows(snap.sessions, Date.now(), width - 2, style);
+    const idx = rows.findIndex((r) => r.key === selectedKey);
+    selected = idx >= 0 ? idx : Math.min(selected, Math.max(0, rows.length - 1));
+    selectedKey = rows[selected]?.key ?? '';
+
+    const lines: string[] = [header(snap.sessions, opts.root, Date.now(), width, style), rule(width, style)];
     const detailH = showDetail && rows[selected] ? Math.min(12, Math.floor(height / 2)) : 0;
     const listH = Math.max(1, height - lines.length - 2 - detailH);
 
-    if (!rows.length) {
-      lines.push(emptyMessage(opts) + ' Waiting…');
-    }
+    if (!rows.length) lines.push(...emptyState(emptyMessage(opts), width, listH, style));
     if (selected < scroll) scroll = selected;
     if (selected >= scroll + listH) scroll = selected - listH + 1;
     rows.slice(scroll, scroll + listH).forEach((r, i) => {
-      const isSel = scroll + i === selected;
-      lines.push((isSel ? paint('›', '36', style) : ' ') + ' ' + r.text);
+      lines.push(scroll + i === selected ? selectRow(r.text, width, style) : unselectedRow(r.text));
     });
     while (lines.length < height - 1 - detailH) lines.push('');
+    if (detailH) lines.push(...detailBox(rows[selected].detail, width, detailH, style));
 
-    if (detailH) {
-      const d = rows[selected].detail;
-      lines.push(paint(fit('── ' + d.title + ' ', width).replace(/ +$/, (m) => '─'.repeat(m.length)), '36', style));
-      const body = d.lines.slice(-(detailH - 1));
-      for (let i = 0; i < detailH - 1; i++) lines.push(fit(body[i] ?? '', width));
-    }
-
-    const footer = '↑/↓ select · enter activity · q quit';
     lines.length = Math.min(lines.length, height - 1);
-    lines.push(paint(footer, '90', style));
-    out.write('\x1b[H' + lines.map((l) => l + '\x1b[K').join('\n') + '\x1b[J');
+    lines.push(footer(style));
+    // Synchronized update (ignored by terminals that do not support it) avoids tearing.
+    out.write('\x1b[?2026h\x1b[H' + lines.map((l) => l + '\x1b[K').join('\n') + '\x1b[J\x1b[?2026l');
   };
+
+  const refresh = () => {
+    snap = scan(store, opts);
+    draw();
+  };
+
+  const anythingRunning = () => snap.sessions.some((s) => s.status === 'running' || s.agents.some(isActive));
 
   const quit = () => {
     out.write('\x1b[?25h\x1b[?1049l');
@@ -163,8 +157,13 @@ function runLive(opts: Options): void {
     draw();
   });
 
-  refresh();
+  draw();
   setInterval(refresh, 1000);
+  // Spinner at ~10 fps, only while something is running.
+  setInterval(() => {
+    frame++;
+    if (opts.color && anythingRunning()) draw();
+  }, 100);
 }
 
 try {

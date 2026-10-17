@@ -141,7 +141,7 @@ function applyEntry(st: TranscriptState, o: any): void {
         if (part.name === 'Agent' || part.name === 'Task') st.spawnedToolUseIds.add(part.id);
       } else if (part.type === 'text' && typeof part.text === 'string' && part.text.trim()) {
         st.current = '“' + oneLine(part.text, 80) + '”';
-        pushRecent(st, t, oneLine(part.text));
+        pushRecent(st, t, '“' + oneLine(part.text) + '”');
       }
     }
     st.finished = msg.stop_reason === 'end_turn';

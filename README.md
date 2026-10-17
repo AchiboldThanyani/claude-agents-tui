@@ -2,25 +2,20 @@
 
 [![Tests](https://github.com/AchiboldThanyani/claude-agents-tui/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/AchiboldThanyani/claude-agents-tui/actions/workflows/test.yml)
 
-A plain terminal view of your running Claude Code sessions and their subagents.
+A live terminal view of your running Claude Code sessions and their subagents.
+
+![claude-agents showing a session with nested Explore, reviewer and test-writer subagents](https://raw.githubusercontent.com/AchiboldThanyani/claude-agents-tui/master/docs/screenshot.png)
 
 It is read-only: it reads the transcript files Claude Code already writes to
 `~/.claude/projects` and never starts, stops or talks to an agent. It has no
 runtime dependencies.
 
-```
-Claude agents · 1 sessions · 2 agents running            ~/.claude/projects  21:46:07
-
-  ● running   Demo session (2 agents)                     demo-app   now   opus-5-5
-  └─ ● running   Plan      Plan the work       2s   Agent Find auth code
-›    └─ ● running   Explore   Find auth code     2s   Grep authenticate
-
-── Explore · Find auth code · haiku-4-5 · running ─────────────────────────────
-21:46:06  prompt: search
-21:46:06  Grep authenticate
-
-↑/↓ select · enter activity · q quit
-```
+The look follows the [Claude Subagents](https://github.com/AchiboldThanyani/claude-subagents)
+VS Code extension: the same Catppuccin colours, a coloured icon per agent type
+(◎ Explore, ◈ Plan, ◇ review, ▲ tests, ✱ bugs, ✦ general purpose…) and a
+spinner on running agents. It needs a terminal with 24-bit colour (Windows
+Terminal, iTerm2, most Linux terminals). `--no-color` or piping the output
+gives plain text.
 
 ## Install
 
@@ -67,8 +62,8 @@ The folder in use is shown in the top-right corner.
 
 | Icon | Agent     | Session    | Meaning                                              |
 |------|-----------|------------|------------------------------------------------------|
-| ●    | running   | running    | transcript written in the last 30s and not finished  |
-| ○    | idle      | idle       | not finished, but quiet (waiting on a permission prompt, rate-limited, or killed) |
+| ⠋ ●  | running   | running    | transcript written in the last 30s and not finished (spins in the live view) |
+| ◌    | idle      | idle       | not finished, but quiet (waiting on a permission prompt, rate-limited, or killed) |
 | ✓    | done      | your turn  | last turn ended; for a session it is waiting for you |
 
 Subagents are nested under the agent that spawned them, using the `toolUseId`

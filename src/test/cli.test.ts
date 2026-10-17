@@ -33,9 +33,9 @@ describe('cli --once', () => {
 
     const { code, stdout } = run('--once', '--no-color', '--root', fake.root);
     assert.equal(code, 0);
-    assert.match(stdout, /1 sessions · 1 agents running/);
+    assert.match(stdout, /✦ claude agents  1 sessions  ● 1 running/);
     assert.match(stdout, /Demo session \(1 agent\)/);
-    assert.match(stdout, /└─ ● running +Explore +Find code .*Grep authenticate/);
+    assert.match(stdout, /└─  ● running +◎ Explore +Find code .*Grep authenticate/);
     assert.doesNotMatch(stdout, /\x1b\[/, 'no ANSI codes with --no-color');
   });
 
@@ -65,7 +65,7 @@ describe('cli --once', () => {
   test('piped output falls back to a single snapshot without --once', () => {
     const { code, stdout } = run('--no-color', '--root', fake.root);
     assert.equal(code, 0);
-    assert.match(stdout, /^Claude agents · 0 sessions/);
+    assert.match(stdout, /^ ✦ claude agents  0 sessions  ● 0 running/);
   });
 });
 
