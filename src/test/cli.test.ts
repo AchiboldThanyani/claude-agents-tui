@@ -55,6 +55,13 @@ describe('cli --once', () => {
     assert.match(stdout, /No Claude Code activity/);
   });
 
+  test('a missing transcript folder is reported with a hint', () => {
+    const missing = path.join(fake.root, 'does-not-exist');
+    const { code, stdout } = run('--once', '--no-color', '--root', missing);
+    assert.equal(code, 0);
+    assert.match(stdout, /Transcript folder not found: .*does-not-exist \(point at it with --root <dir>\)/);
+  });
+
   test('piped output falls back to a single snapshot without --once', () => {
     const { code, stdout } = run('--no-color', '--root', fake.root);
     assert.equal(code, 0);

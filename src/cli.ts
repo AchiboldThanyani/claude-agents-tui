@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import * as os from 'os';
-import * as path from 'path';
+import * as fs from 'fs';
 import { TranscriptStore } from './transcripts';
+import { resolveRoot } from './root';
 import { buildRows, fit, header, paint, Row, Style } from './render';
 
 const HELP = `claude-agents — watch Claude Code sessions and their subagents
@@ -10,7 +10,8 @@ Usage: claude-agents [options]
 
   --since <dur>     only show activity newer than this (default 1h; e.g. 30m, 6h, 2d)
   --project <text>  only show sessions whose project folder contains <text>
-  --root <dir>      transcript folder (default $CLAUDE_CONFIG_DIR/projects or ~/.claude/projects)
+  --root <dir>      transcript folder (default $CLAUDE_CONFIG_DIR/projects or ~/.claude/projects;
+                    in WSL, falls back to the Windows C:Users<you>.claudeprojects)
   --once            print one snapshot and exit
   --no-color        disable colors (also honours NO_COLOR)
   -h, --help        show this help
@@ -34,10 +35,10 @@ function parseDuration(s: string): number {
 }
 
 function parseArgs(argv: string[]): Options {
-  const configDir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+  let root: string | undefined;
   const opts: Options = {
     sinceMs: parseDuration('1h'),
-    root: path.join(configDir, 'projects'),
+    root: '',
     once: false,
     color: !process.env.NO_COLOR,
   };
@@ -53,11 +54,12 @@ function parseArgs(argv: string[]): Options {
       process.exit(0);
     } else if (a === '--since') opts.sinceMs = parseDuration(value());
     else if (a === '--project') opts.project = value();
-    else if (a === '--root') opts.root = value();
+    else if (a === '--root') root = value();
     else if (a === '--once') opts.once = true;
     else if (a === '--no-color') opts.color = false;
     else throw new Error(`unknown option: ${a}`);
   }
+  opts.root = resolveRoot(root).root;
   return opts;
 }
 
@@ -67,13 +69,19 @@ function snapshot(store: TranscriptStore, opts: Options, width: number, style: S
   return { now, sessions, rows: buildRows(sessions, now, width, style) };
 }
 
+/** What to say when there is nothing to show. */
+function emptyMessage(opts: Options): string {
+  if (!fs.existsSync(opts.root)) return `Transcript folder not found: ${opts.root} (point at it with --root <dir>)`;
+  return `No Claude Code activity in the last ${Math.round(opts.sinceMs / 60000)}m (widen it with --since, e.g. --since 1d).`;
+}
+
 function runOnce(opts: Options): void {
   const store = new TranscriptStore(opts.root);
   const width = process.stdout.columns || Number(process.env.COLUMNS) || 120;
   const style = { color: opts.color && !!process.stdout.isTTY };
   const { now, sessions, rows } = snapshot(store, opts, width, style);
   const lines = [header(sessions, opts.root, now, width, style), ''];
-  if (!rows.length) lines.push(`No Claude Code activity in ${opts.root} for the selected window.`);
+  if (!rows.length) lines.push(emptyMessage(opts));
   lines.push(...rows.map((r) => r.text));
   process.stdout.write(lines.join('\n') + '\n');
 }
@@ -107,7 +115,7 @@ function runLive(opts: Options): void {
     const listH = Math.max(1, height - lines.length - 2 - detailH);
 
     if (!rows.length) {
-      lines.push(`No Claude Code activity in the last ${Math.round(opts.sinceMs / 60000)}m. Waiting…`);
+      lines.push(emptyMessage(opts) + ' Waiting…');
     }
     if (selected < scroll) scroll = selected;
     if (selected >= scroll + listH) scroll = selected - listH + 1;

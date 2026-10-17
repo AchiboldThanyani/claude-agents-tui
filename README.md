@@ -51,6 +51,18 @@ claude-agents --once             # print one snapshot and exit (also used when p
 Keys: `↑/↓` or `j/k` select, `enter` shows the selected row's recent activity,
 `q` quits.
 
+### Which folder it reads
+
+1. `--root <dir>` if given
+2. `$CLAUDE_CONFIG_DIR/projects` if that variable is set
+3. `~/.claude/projects` if it exists
+4. **WSL:** if there is no Linux `~/.claude/projects`, the Windows one at
+   `/mnt/<drive>/Users/<you>/.claude/projects` (the most recently used, if
+   there are several). This covers running the Windows build of Claude Code
+   and watching it from an Ubuntu shell.
+
+The folder in use is shown in the top-right corner.
+
 ## Statuses
 
 | Icon | Agent     | Session    | Meaning                                              |
