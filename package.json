@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "start": "node out/cli.js"
+    "start": "node out/cli.js",
+    "test": "tsc -p ./ && node --test \"out/test/*.test.js\""
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

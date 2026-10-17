@@ -64,5 +64,16 @@ in each `agent-<id>.meta.json`.
 - `src/render.ts` turns the summaries into tree rows.
 - `src/cli.ts` handles options, keys and redraws using plain ANSI codes.
 
+## Tests
+
+```sh
+npm test
+```
+
+Uses Node's built-in test runner (Node 21+), no extra dependencies. The tests
+build fake transcript folders in a temp directory and check status detection,
+subagent nesting, incremental reading (appended, half-written and rewritten
+files), filtering, rendering widths and the CLI end to end.
+
 These files are an internal Claude Code format, not a public API, so a future
 Claude Code release may need small parser updates.
