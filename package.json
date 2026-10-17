@@ -1,0 +1,18 @@
+{
+  "name": "claude-agents-tui",
+  "version": "0.1.0",
+  "description": "Plain terminal view of running Claude Code sessions and their subagents",
+  "license": "MIT",
+  "bin": { "claude-agents": "./out/cli.js" },
+  "main": "./out/cli.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "start": "node out/cli.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
