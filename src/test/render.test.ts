@@ -4,6 +4,7 @@ import {
   agentLook,
   buildRows,
   C,
+  bg,
   detailBox,
   duration,
   emptyState,
@@ -11,11 +12,13 @@ import {
   fit,
   footer,
   footerButtons,
+  compose,
   header,
   selectRow,
   visibleLength,
 } from '../render';
 import { AgentInfo, SessionInfo, Status, TranscriptState } from '../transcripts';
+import { VirtualTerminal } from './vt';
 
 const NOW = Date.parse('2026-10-17T12:00:00Z');
 const plain = { color: false };
@@ -181,6 +184,50 @@ describe('buildRows', () => {
     const f1 = buildRows(tree, NOW, 120, { color: true, frame: 1 })[1].text;
     assert.ok(f0.includes('⠋') && f1.includes('⠙'), 'spinner advances with the frame');
     assert.ok(!f0.includes('●'));
+  });
+});
+
+describe('compose (writing a frame to the terminal)', () => {
+  const W = 30;
+  const H = 4;
+  const full = ['A'.repeat(W - 1) + 'Z', 'short', 'B'.repeat(W - 1) + 'Y', 'end'];
+
+  test('the old way (clear after each line) loses the last column; the emulator models it', () => {
+    const vt = new VirtualTerminal(W, H);
+    vt.write('\x1b[H' + full.map((l) => l + '\x1b[K').join('\n') + '\x1b[J');
+    assert.equal(vt.text()[0], 'A'.repeat(W - 1), 'the Z was erased');
+  });
+
+  test('full-width lines keep their last character', () => {
+    for (const style of [plain, color]) {
+      const vt = new VirtualTerminal(W, H);
+      vt.write(compose(full, H, style));
+      assert.deepEqual(vt.text(), full);
+    }
+  });
+
+  test('a redraw replaces longer old content', () => {
+    const vt = new VirtualTerminal(W, H);
+    vt.write(compose(full, H, plain));
+    vt.write(compose(['x', 'y'], H, plain));
+    assert.deepEqual(vt.text(), ['x', 'y', '', '']);
+  });
+
+  test('real rows and header survive at the exact terminal width', () => {
+    const width = 100;
+    const tree = [session([agent('a', 'running', { state: state({ current: 'Grep ' + 'x'.repeat(200) }) })])];
+    const lines = [header(tree, '/some/root', NOW, width, color), ...buildRows(tree, NOW, width, color).map((r) => r.text)];
+    const vt = new VirtualTerminal(width, lines.length);
+    vt.write(compose(lines, lines.length, color));
+    const strip = (s: string) => s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/ +$/, '');
+    assert.deepEqual(vt.text(), lines.map(strip));
+    assert.match(vt.text()[0], /\d\d:\d\d:\d\d$/, 'clock is not cut off');
+  });
+
+  test('with colour, the background is re-applied after every reset', () => {
+    const out = compose(['\x1b[1mbold\x1b[0m plain'], 1, color);
+    assert.ok(out.includes(`\x1b[0m\x1b[${bg(C.bg)}m plain`));
+    assert.doesNotMatch(compose(['x'], 1, plain), /48;2/);
   });
 });
 

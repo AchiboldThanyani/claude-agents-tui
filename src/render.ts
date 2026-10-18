@@ -392,6 +392,23 @@ export function footerButtons(style: Style, mode: 'tree' | 'space' = 'tree'): Ar
   return buttons;
 }
 
+/**
+ * Turns screen lines into one terminal write. Each line is placed with an
+ * explicit cursor move and cleared *before* it is written: clearing after a
+ * full-width line would erase its last character, because the cursor is then
+ * parked on the last column. With colour on, the extension's background is
+ * painted behind everything (re-applied after every reset).
+ */
+export function compose(lines: string[], height: number, style: Style): string {
+  const back = style.color ? `\x1b[${bg(C.bg)}m` : '';
+  let out = '';
+  for (let row = 0; row < height; row++) {
+    const line = lines[row] ?? '';
+    out += `\x1b[${row + 1};1H${back}\x1b[2K${back ? line.replace(/\x1b\[0m/g, '\x1b[0m' + back) : line}`;
+  }
+  return out + (back ? '\x1b[0m' : '');
+}
+
 /** Centred placeholder, like the extension's empty canvas hint. */
 export function emptyState(message: string, width: number, height: number, style: Style): string[] {
   const center = (s: string) => ' '.repeat(Math.max(0, Math.floor((width - s.length) / 2))) + s;

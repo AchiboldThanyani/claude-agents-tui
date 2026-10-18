@@ -2,7 +2,7 @@
 import * as fs from 'fs';
 import { isActive, SessionInfo, TranscriptStore } from './transcripts';
 import { resolveRoot } from './root';
-import { buildRows, detailBox, emptyState, footer, footerButtons, header, Row, rule, selectRow, Style, unselectedRow } from './render';
+import { buildRows, compose, detailBox, emptyState, footer, footerButtons, header, Row, rule, selectRow, Style, unselectedRow } from './render';
 import { Space } from './space';
 import { isMouseInput, MOUSE_OFF, MOUSE_ON, parseMouse } from './input';
 
@@ -154,7 +154,7 @@ function runLive(opts: Options): void {
     lines.push(footer(style, mode));
     layout = { listTop: 2, listH, footerRow: lines.length - 1, style };
     // Synchronized update (ignored by terminals that do not support it) avoids tearing.
-    out.write('\x1b[?2026h\x1b[H' + lines.map((l) => l + '\x1b[K').join('\n') + '\x1b[J\x1b[?2026l');
+    out.write('\x1b[?2026h' + compose(lines, height, style) + '\x1b[?2026l');
   };
 
   const refresh = () => {
