@@ -339,7 +339,8 @@ export function detailBox(d: Row['detail'], width: number, height: number, style
   return lines;
 }
 
-export type FooterAction = 'details' | 'toggle-view' | 'quit';
+export type FooterAction = 'details' | 'toggle-view' | 'transcript' | 'close' | 'top' | 'end' | 'quit';
+export type FooterMode = 'tree' | 'space' | 'viewer';
 
 interface FooterPart {
   key: string;
@@ -348,18 +349,28 @@ interface FooterPart {
   action?: FooterAction;
 }
 
-function footerParts(mode: 'tree' | 'space'): FooterPart[] {
+function footerParts(mode: FooterMode): FooterPart[] {
+  if (mode === 'viewer') {
+    return [
+      { key: 'Esc', plainKey: 'esc', label: 'close', action: 'close' },
+      { key: '↑↓', plainKey: '↑/↓', label: 'scroll' },
+      { key: 'PgUp/PgDn', plainKey: 'pgup/pgdn', label: 'page' },
+      { key: 'g', plainKey: 'g', label: 'top', action: 'top' },
+      { key: 'G', plainKey: 'G', label: 'end', action: 'end' },
+    ];
+  }
   return [
     { key: 'Tab', plainKey: 'tab', label: mode === 'tree' ? 'space view' : 'tree view', action: 'toggle-view' },
     mode === 'tree' ? { key: '↑↓', plainKey: '↑/↓', label: 'select' } : { key: '←↑↓→', plainKey: 'arrows', label: 'select' },
     { key: '⏎', plainKey: 'enter', label: 'details', action: 'details' },
+    { key: 'v', plainKey: 'v', label: 'transcript', action: 'transcript' },
     { key: 'q', plainKey: 'q', label: 'quit', action: 'quit' },
   ];
 }
 
 const FOOTER_SEP = { color: '    ', plain: ' · ' };
 
-function footerPieces(style: Style, mode: 'tree' | 'space'): Array<{ text: string; width: number; action?: FooterAction }> {
+function footerPieces(style: Style, mode: FooterMode): Array<{ text: string; width: number; action?: FooterAction }> {
   return footerParts(mode).map((p) =>
     style.color
       ? {
@@ -371,14 +382,14 @@ function footerPieces(style: Style, mode: 'tree' | 'space'): Array<{ text: strin
   );
 }
 
-export function footer(style: Style, mode: 'tree' | 'space' = 'tree'): string {
+export function footer(style: Style, mode: FooterMode = 'tree'): string {
   return footerPieces(style, mode)
     .map((p) => p.text)
     .join(style.color ? FOOTER_SEP.color : FOOTER_SEP.plain);
 }
 
 /** Column ranges [from, to) of the clickable footer buttons. */
-export function footerButtons(style: Style, mode: 'tree' | 'space' = 'tree'): Array<{ from: number; to: number; action: FooterAction }> {
+export function footerButtons(style: Style, mode: FooterMode = 'tree'): Array<{ from: number; to: number; action: FooterAction }> {
   const sep = (style.color ? FOOTER_SEP.color : FOOTER_SEP.plain).length;
   const buttons: Array<{ from: number; to: number; action: FooterAction }> = [];
   let x = 0;

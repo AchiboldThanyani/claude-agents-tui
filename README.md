@@ -40,6 +40,7 @@ npm link          # optional: puts `claude-agents` on your PATH
 ```sh
 claude-agents                    # live view, refreshes every second
 claude-agents --space            # start in the space view
+claude-agents --notify           # also send desktop notifications when something needs you
 claude-agents --since 6h         # widen the time window (default 1h)
 claude-agents --project extension
 claude-agents --once             # print one snapshot and exit (also used when piped)
@@ -51,17 +52,42 @@ claude-agents --once             # print one snapshot and exit (also used when p
 | `↑/↓` or `j/k` | select row | move to the nearest agent above/below |
 | `←/→` or `h/l` | | move to the nearest agent left/right |
 | `Enter` | show/hide the selected agent's recent activity | same |
+| `v` | open the full transcript | same |
 | `q` | quit | quit |
 
 **Mouse:** click a row or card to select it, click it again to show its
-details, click the footer keys (`⏎ details`, `⇥ space view`, `q quit`), and
-use the wheel to move through the tree. While the mouse is captured, hold
-`Shift` to select text, or start with `--no-mouse`.
+details, click the footer keys (`Tab space view`, `⏎ details`,
+`v transcript`, `q quit`), and use the wheel to move through the tree or
+scroll a transcript. While the mouse is captured, hold `Shift` to select text,
+or start with `--no-mouse`.
 
 Clicks work in terminals on Linux, macOS and WSL. On native Windows (running
 `claude-agents` from PowerShell or cmd), Node's console input currently passes
 keys through but not mouse events, so use the keyboard there, or run it from
 WSL.
+
+### Alerts
+
+The line under the header turns into a banner for a few seconds when:
+
+| Event | Banner | Bell | `--notify` |
+|---|---|---|---|
+| a running agent goes quiet (it is usually waiting on a permission prompt) | `◌ Explore is waiting · extension` | yes | yes |
+| a session finishes its turn | `✓ Your turn · extension` | yes | yes |
+| an agent finishes | `✓ Explore finished · extension` | | |
+
+Only changes seen while `claude-agents` is running alert, never work that was
+already done when it started. `--quiet` turns the bell off. `--notify` sends
+a desktop notification: a Windows toast (also from WSL), Notification Center
+on macOS, or `notify-send` on Linux.
+
+### Transcript viewer
+
+`v` (or the `v transcript` footer key) opens the selected agent's or session's
+whole conversation: the prompt, Claude's replies, every tool call with its
+input, and the tool results, with failures in red. Long outputs are cut to a
+few lines. It follows new activity while you are at the end; scroll up with
+`↑/↓`, `PgUp/PgDn` or the wheel, `g`/`G` jump to the top/end, and `Esc` closes it.
 
 ### Space view
 
@@ -112,6 +138,9 @@ in each `agent-<id>.meta.json`.
 - `src/transcripts.ts` tails each JSONL file from its last offset and folds new
   lines into a small summary (status, current tool, tool count, tokens).
 - `src/render.ts` turns the summaries into tree rows.
+- `src/alerts.ts` turns status changes between scans into alerts;
+  `src/notify.ts` sends desktop notifications.
+- `src/conversation.ts` and `src/viewer.ts` read and display a full transcript.
 - `src/space.ts` lays out the space view (force simulation) and draws it on a
   character canvas, with links in braille dots.
 - `src/cli.ts` handles options, keys and redraws using plain ANSI codes.

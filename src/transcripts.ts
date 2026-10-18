@@ -57,6 +57,8 @@ export interface AgentInfo {
   state: TranscriptState;
   status: Status;
   children: AgentInfo[];
+  /** The agent's transcript file. */
+  file: string;
 }
 
 export interface SessionInfo {
@@ -66,6 +68,8 @@ export interface SessionInfo {
   status: Status;
   agents: AgentInfo[];
   agentCount: number;
+  /** The session's main transcript file. */
+  file: string;
 }
 
 interface AgentMeta {
@@ -274,6 +278,7 @@ export class TranscriptStore {
 
         sessions.push({
           id,
+          file,
           project,
           state,
           status: statusOf(state, now),
@@ -306,6 +311,7 @@ export class TranscriptStore {
       const meta = this.meta(path.join(subDir, `agent-${m[1]}.meta.json`));
       agents.push({
         id: m[1],
+        file,
         agentType: meta.agentType ?? 'agent',
         description: meta.description ?? state.firstPrompt ?? '',
         depth: meta.spawnDepth ?? 1,

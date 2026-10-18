@@ -26,11 +26,11 @@ function state(patch: Partial<TranscriptState> = {}): TranscriptState {
 }
 
 function agent(id: string, status: Status, patch: Partial<AgentInfo> = {}): AgentInfo {
-  return { id, agentType: 'Explore', description: 'Find ' + id, depth: 1, state: state(), status, children: [], ...patch };
+  return { id, agentType: 'Explore', description: 'Find ' + id, depth: 1, state: state(), status, children: [], file: `agent-${id}.jsonl`, ...patch };
 }
 
 function session(id: string, agents: AgentInfo[], status: Status = 'running', mtime = NOW): SessionInfo {
-  return { id, project: 'demo-app', state: state({ title: 'Session ' + id, mtime }), status, agents, agentCount: agents.length };
+  return { id, project: 'demo-app', state: state({ title: 'Session ' + id, mtime }), status, agents, agentCount: agents.length, file: id + '.jsonl' };
 }
 
 const strip = (s: string) => s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');

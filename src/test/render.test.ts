@@ -41,12 +41,13 @@ function state(patch: Partial<TranscriptState> = {}): TranscriptState {
 }
 
 function agent(id: string, status: Status, patch: Partial<AgentInfo> = {}): AgentInfo {
-  return { id, agentType: 'Explore', description: 'Find code', depth: 1, state: state(), status, children: [], ...patch };
+  return { id, agentType: 'Explore', description: 'Find code', depth: 1, state: state(), status, children: [], file: `agent-${id}.jsonl`, ...patch };
 }
 
 function session(agents: AgentInfo[], status: Status = 'running'): SessionInfo {
   return {
     id: 'abcdef12-0000',
+    file: 'abcdef12-0000.jsonl',
     project: 'demo-app',
     state: state({ title: 'Demo session', model: 'claude-opus-5-5' }),
     status,
@@ -303,15 +304,24 @@ describe('chrome', () => {
         };
         assert.match(at('details'), /details$/);
         assert.match(at('toggle-view'), mode === 'tree' ? /space view$/ : /tree view$/);
+        assert.match(at('transcript'), /transcript$/);
         assert.match(at('quit'), /quit$/);
+      }
+      const text = footer(style, 'viewer').replace(/\x1b\[[0-9;]*m/g, '');
+      for (const [action, label] of [['close', 'close'], ['top', 'top'], ['end', 'end']]) {
+        const b = footerButtons(style, 'viewer').find((b) => b.action === action)!;
+        assert.match(text.slice(b.from, b.to), new RegExp(label + '$'));
       }
     }
   });
 
   test('footer lists the keys', () => {
-    assert.equal(footer(plain), 'tab space view · ↑/↓ select · enter details · q quit');
-    assert.equal(footer(plain, 'space'), 'tab tree view · arrows select · enter details · q quit');
-    assert.equal(footer(color).replace(/\x1b\[[0-9;]*m/g, ''), ' Tab space view     ↑↓ select     ⏎ details     q quit');
-    assert.equal(footer(color, 'space').replace(/\x1b\[[0-9;]*m/g, ''), ' Tab tree view     ←↑↓→ select     ⏎ details     q quit');
+    assert.equal(footer(plain), 'tab space view · ↑/↓ select · enter details · v transcript · q quit');
+    assert.equal(footer(plain, 'space'), 'tab tree view · arrows select · enter details · v transcript · q quit');
+    assert.equal(footer(plain, 'viewer'), 'esc close · ↑/↓ scroll · pgup/pgdn page · g top · G end');
+    assert.equal(
+      footer(color).replace(/\x1b\[[0-9;]*m/g, ''),
+      ' Tab space view     ↑↓ select     ⏎ details     v transcript     q quit',
+    );
   });
 });
