@@ -232,7 +232,8 @@ describe('Space rendering', () => {
   test('draws a card with an icon and label for every node', () => {
     const text = rendered(plain).join('\n');
     for (const s of ['◈', '◎', '◇', '❖', 'Plan', 'Explore', 'code-reviewer', 'Session s1']) assert.ok(text.includes(s), `missing ${s}`);
-    assert.equal(text.match(/╭───────╮|╭─────.─╮/g)?.length, 5);
+    assert.equal(text.match(/╭─────────╮/g)?.length, 5);
+    for (const t of ['● Plan', '● Explore', '◌ code-reviewer', '● Session s1']) assert.ok(text.includes(t), `missing title ${t}`);
   });
 
   test('links are drawn with braille dots', () => {

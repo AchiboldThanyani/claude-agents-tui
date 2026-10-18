@@ -52,7 +52,8 @@ describe('cli --once', () => {
 
     const { code, stdout } = run('--once', '--space', '--no-color', '--root', fake.root);
     assert.equal(code, 0);
-    assert.match(stdout, /╭─────●─╮/, 'running card with its status mark');
+    assert.match(stdout, /● Explore/, 'status and name above the card');
+    assert.match(stdout, /╭─────────╮/);
     assert.match(stdout, /◎/);
     assert.match(stdout, /Demo session/);
     assert.doesNotMatch(stdout, /└─/, 'no tree connectors in the space view');

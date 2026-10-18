@@ -11,11 +11,12 @@ It is read-only: it reads the transcript files Claude Code already writes to
 runtime dependencies.
 
 The look follows the [Claude Subagents](https://github.com/AchiboldThanyani/claude-subagents)
-VS Code extension: the same Catppuccin colours, a coloured icon per agent type
+VS Code extension: its Catppuccin colours, a coloured icon per agent type
 (◎ Explore, ◈ Plan, ◇ review, ▲ tests, ✱ bugs, ✦ general purpose…) and a
-spinner on running agents. It needs a terminal with 24-bit colour (Windows
-Terminal, iTerm2, most Linux terminals). `--no-color` or piping the output
-gives plain text.
+spinner on running agents, drawn as plain outlined text over your terminal's
+own background. It is designed for dark themes and needs 24-bit colour
+(Windows Terminal, iTerm2, most Linux terminals). `--no-color` or piping the
+output gives plain text.
 
 ## Install
 
@@ -68,9 +69,10 @@ WSL.
 
 Agents float on a canvas like the extension's graph, laid out by the same
 force simulation: cards push each other apart, links pull each agent towards
-the one that spawned it, and everything drifts to a stop. Running agents spin
-and have two arcs chasing round their border; links to the selected agent
-light up.
+the one that spawned it, and everything drifts to a stop. Each card shows the
+status and name above (`⠙ Explore`) and the description below. Running agents
+spin and have two arcs chasing round their border; the selected card and its
+links turn purple.
 
 A terminal only has room for so many cards, so when there are too many the
 oldest finished agents are hidden first (the count is shown bottom-left).

@@ -34,8 +34,9 @@ export const C = {
   accent: '#7c6af7',
   accent2: '#5eead4',
   text: '#cdd6f4',
-  muted: '#555870',
-  subtle: '#3a3a5c',
+  // Lighter than the extension's greys, which assume its near-black background.
+  muted: '#8087a2',
+  subtle: '#5d6283',
   ok: '#a6e3a1',
   err: '#f38ba8',
   warn: '#f9e2af',
@@ -122,11 +123,10 @@ function statusIcon(status: Status, style: Style): string {
   return STATUS[status].icon;
 }
 
-/** A tinted pill like the extension's `.status-pill`, padded to a fixed column. */
+/** Status icon and word in the status colour, padded to a fixed column. */
 function pill(status: Status, label: string, style: Style): string {
-  const { color } = STATUS[status];
   const body = ` ${statusIcon(status, style)} ${label} `;
-  return paint(body, `${fg(color)};${bg(tint(color, 0.16))}`, style) + ' '.repeat(Math.max(1, PILL_W - body.length));
+  return paint(body, fg(STATUS[status].color), style) + ' '.repeat(Math.max(1, PILL_W - body.length));
 }
 
 /** Matches Claude Code agent types to the extension's icon/colour families. */
@@ -270,7 +270,7 @@ function countAgents(sessions: SessionInfo[]): Record<Status, number> {
 export function header(sessions: SessionInfo[], root: string, now: number, width: number, style: Style): string {
   const n = countAgents(sessions);
   const brand = ' ✦ claude agents ';
-  const chips: Array<[string, string]> = [[`${sessions.length} sessions`, C.muted]];
+  const chips: Array<[string, string]> = [[`${sessions.length} sessions`, C.text]];
   chips.push([`${n.running ? statusIcon('running', style) : '●'} ${n.running} running`, C.running]);
   if (n.idle) chips.push([`◌ ${n.idle} idle`, C.warn]);
   if (n.done) chips.push([`✓ ${n.done} done`, C.ok]);
@@ -283,7 +283,7 @@ export function header(sessions: SessionInfo[], root: string, now: number, width
   const gap = Math.max(1, width - leftLen - right.length);
 
   return (
-    paint(brand, `${BOLD};${fg('#ffffff')};${bg(C.accent)}`, style) +
+    paint(brand, `${BOLD};${fg(C.accent)}`, style) +
     ' ' +
     chips.map(([t, c]) => paint(t, fg(c), style) + sep).join('') +
     ' '.repeat(gap) +
@@ -292,16 +292,13 @@ export function header(sessions: SessionInfo[], root: string, now: number, width
 }
 
 export function rule(width: number, style: Style): string {
-  return style.color ? paint('─'.repeat(width), fg(C.border), style) : '';
+  return style.color ? paint('─'.repeat(width), fg(C.subtle), style) : '';
 }
 
-/** Highlights a row like the extension's selected node: accent bar + raised background. */
-export function selectRow(text: string, width: number, style: Style): string {
+/** Marks the selected row with an accent bar (no background, so it suits any terminal theme). */
+export function selectRow(text: string, _width: number, style: Style): string {
   if (!style.color) return '› ' + text;
-  const sel = bg(C.border);
-  const body = text.replace(/\x1b\[0m/g, `\x1b[0m\x1b[${sel}m`);
-  const pad = ' '.repeat(Math.max(0, width - 2 - visibleLength(text)));
-  return paint('▌', fg(C.accent), style) + `\x1b[${sel}m ${body}${pad}\x1b[0m`;
+  return paint('▌', `${BOLD};${fg(C.accent)}`, style) + ' ' + text;
 }
 
 export function unselectedRow(text: string): string {
@@ -353,21 +350,21 @@ interface FooterPart {
 
 function footerParts(mode: 'tree' | 'space'): FooterPart[] {
   return [
-    mode === 'tree' ? { key: '↑↓', plainKey: '↑/↓', label: 'select' } : { key: '←↑↓→', plainKey: 'arrows', label: 'move' },
+    { key: 'Tab', plainKey: 'tab', label: mode === 'tree' ? 'space view' : 'tree view', action: 'toggle-view' },
+    mode === 'tree' ? { key: '↑↓', plainKey: '↑/↓', label: 'select' } : { key: '←↑↓→', plainKey: 'arrows', label: 'select' },
     { key: '⏎', plainKey: 'enter', label: 'details', action: 'details' },
-    { key: '⇥', plainKey: 'tab', label: mode === 'tree' ? 'space view' : 'tree view', action: 'toggle-view' },
     { key: 'q', plainKey: 'q', label: 'quit', action: 'quit' },
   ];
 }
 
-const FOOTER_SEP = { color: '   ', plain: ' · ' };
+const FOOTER_SEP = { color: '    ', plain: ' · ' };
 
 function footerPieces(style: Style, mode: 'tree' | 'space'): Array<{ text: string; width: number; action?: FooterAction }> {
   return footerParts(mode).map((p) =>
     style.color
       ? {
-          text: paint(` ${p.key} `, `${fg(C.text)};${bg(C.surface)}`, style) + paint(` ${p.label}`, fg(C.muted), style),
-          width: p.key.length + 3 + p.label.length,
+          text: ' ' + paint(p.key, `${BOLD};${fg(C.accent)}`, style) + paint(` ${p.label}`, fg(C.text), style),
+          width: 1 + p.key.length + 1 + p.label.length,
           action: p.action,
         }
       : { text: `${p.plainKey} ${p.label}`, width: p.plainKey.length + 1 + p.label.length, action: p.action },
@@ -396,17 +393,12 @@ export function footerButtons(style: Style, mode: 'tree' | 'space' = 'tree'): Ar
  * Turns screen lines into one terminal write. Each line is placed with an
  * explicit cursor move and cleared *before* it is written: clearing after a
  * full-width line would erase its last character, because the cursor is then
- * parked on the last column. With colour on, the extension's background is
- * painted behind everything (re-applied after every reset).
+ * parked on the last column. The terminal's own background shows through.
  */
-export function compose(lines: string[], height: number, style: Style): string {
-  const back = style.color ? `\x1b[${bg(C.bg)}m` : '';
+export function compose(lines: string[], height: number): string {
   let out = '';
-  for (let row = 0; row < height; row++) {
-    const line = lines[row] ?? '';
-    out += `\x1b[${row + 1};1H${back}\x1b[2K${back ? line.replace(/\x1b\[0m/g, '\x1b[0m' + back) : line}`;
-  }
-  return out + (back ? '\x1b[0m' : '');
+  for (let row = 0; row < height; row++) out += `\x1b[${row + 1};1H\x1b[2K${lines[row] ?? ''}`;
+  return out;
 }
 
 /** Centred placeholder, like the extension's empty canvas hint. */

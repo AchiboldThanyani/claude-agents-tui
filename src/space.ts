@@ -1,5 +1,5 @@
 import { AgentInfo, SessionInfo, Status } from './transcripts';
-import { agentLook, BOLD, C, Style, bg, fg, paint, tint } from './render';
+import { agentLook, BOLD, C, Style, bg, fg, paint } from './render';
 
 /**
  * The "space" view: agents float on a canvas like the VS Code extension's
@@ -100,7 +100,8 @@ interface Body {
   vy: number;
 }
 
-const CARD_W = 9; // ╭───────╮
+// A node is five rows: "⠙ Explore" above, a 3-row card, the description below.
+const CARD_W = 11; // ╭─────────╮
 const CARD_H = 3; // rows
 const LABEL_W = 16;
 const REPEL = 40;
@@ -234,9 +235,9 @@ export class Space {
       p.vy = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, p.vy * DAMPING));
       const x = p.x;
       const y = p.y;
-      // Keep the card and its two label lines on screen; the bottom row stays free for the "hidden" note.
+      // Keep the label, card and description on screen; the bottom row stays free for the "hidden" note.
       p.x = Math.max(LABEL_W / 2, Math.min(W - LABEL_W / 2 - 1, p.x + p.vx));
-      p.y = Math.max(2, Math.min(H - 10, p.y + p.vy));
+      p.y = Math.max(4, Math.min(H - 8, p.y + p.vy));
       // A card pressed against an edge stops there instead of pushing forever.
       if (p.x !== x + p.vx) p.vx = 0;
       if (p.y !== y + p.vy) p.vy = 0;
@@ -245,7 +246,7 @@ export class Space {
     this.energy = energy;
   }
 
-  /** The node drawn at a canvas cell (its card or its two label lines), topmost first. */
+  /** The node drawn at a canvas cell (its card, title or description), topmost first. */
   hit(col: number, row: number, selectedKey?: string): string | undefined {
     const ordered = [...this.graph.nodes].sort((a, b) => Number(b.key === selectedKey) - Number(a.key === selectedKey));
     for (const n of ordered) {
@@ -253,9 +254,9 @@ export class Space {
       const left = Math.round(b.x) - Math.floor(CARD_W / 2);
       const top = Math.round(b.y / 2) - 1;
       if (col >= left && col < left + CARD_W && row >= top && row < top + CARD_H) return n.key;
-      const label = clip(row === top + 3 ? n.label : row === top + 4 ? n.sublabel : '', LABEL_W);
-      const start = Math.round(b.x - label.length / 2);
-      if (label && col >= start && col < start + label.length) return n.key;
+      const text = row === top - 1 ? titleText(n, STATUS_MARK[n.status]) : row === top + CARD_H ? clip(n.sublabel, LABEL_W) : '';
+      const start = Math.round(b.x - text.length / 2);
+      if (text && col >= start && col < start + text.length) return n.key;
     }
     return undefined;
   }
@@ -306,16 +307,20 @@ export class Space {
     const b = this.bodies.get(n.key)!;
     const left = Math.round(b.x) - Math.floor(CARD_W / 2);
     const top = Math.round(b.y / 2) - 1;
-    const statusColor = STATUS_COLOR[n.status];
-    const border = selected ? C.accent : statusColor;
-    const fill = tint(selected ? C.accent : statusColor, selected ? 0.22 : 0.12);
+    const border = selected ? C.accent : STATUS_COLOR[n.status];
 
+    // Title above the card: status mark + name, e.g. "⠙ Explore".
+    const mark = n.status === 'running' && style.frame !== undefined ? SPINNER[style.frame % SPINNER.length] : STATUS_MARK[n.status];
+    const title = titleText(n, mark);
+    const titleLeft = Math.round(b.x - title.length / 2);
+    canvas.text(titleLeft, top - 1, mark, STATUS_COLOR[n.status], undefined, true);
+    canvas.text(titleLeft + 2, top - 1, title.slice(2), selected ? C.accent : n.isSession ? C.text : n.color, undefined, true);
+
+    // An outlined card with the agent's icon in the middle.
     const inner = CARD_W - 2;
     canvas.text(left, top, '╭' + '─'.repeat(inner) + '╮', border, undefined, selected);
-    canvas.text(left, top + 1, '│', border, undefined, selected);
-    canvas.text(left + 1, top + 1, ' '.repeat(inner), C.text, fill);
-    canvas.text(left + 1 + Math.floor(inner / 2), top + 1, n.icon, n.color, fill, true);
-    canvas.text(left + CARD_W - 1, top + 1, '│', border, undefined, selected);
+    canvas.text(left, top + 1, '│' + ' '.repeat(inner) + '│', border, undefined, selected);
+    canvas.text(left + 1 + Math.floor(inner / 2), top + 1, n.icon, n.color, undefined, true);
     canvas.text(left, top + 2, '╰' + '─'.repeat(inner) + '╯', border, undefined, selected);
 
     // Running: two counter-rotating arcs chase round the border, like the extension's rings.
@@ -326,14 +331,9 @@ export class Space {
       for (let i = 0; i < 3; i++) canvas.recolor(...at(-style.frame + ring.length / 2 + i), C.accent2);
     }
 
-    // Status mark in the top-right corner, like the extension's status dot.
-    const mark = n.status === 'running' && style.frame !== undefined ? SPINNER[style.frame % SPINNER.length] : STATUS_MARK[n.status];
-    canvas.text(left + CARD_W - 3, top, mark, STATUS_COLOR[n.status], undefined, true);
-
-    const label = clip(n.label, LABEL_W);
+    // Description below the card.
     const sub = clip(n.sublabel, LABEL_W);
-    canvas.text(Math.round(b.x - label.length / 2), top + 3, label, n.isSession ? C.text : n.color, undefined, true);
-    canvas.text(Math.round(b.x - sub.length / 2), top + 4, sub, n.isSession ? C.accent2 : C.muted);
+    canvas.text(Math.round(b.x - sub.length / 2), top + CARD_H, sub, n.isSession ? C.accent2 : C.muted);
   }
 }
 
@@ -343,6 +343,11 @@ const SPINNER = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
 
 function clip(s: string, w: number): string {
   return s.length > w ? s.slice(0, w - 1) + '…' : s;
+}
+
+/** "⠙ Explore": the status mark and the node's name, as drawn above its card. */
+function titleText(n: SpaceNode, mark: string): string {
+  return `${mark} ${clip(n.label, LABEL_W - 2)}`;
 }
 
 /** Border cells of a card, clockwise from the top-left corner. */

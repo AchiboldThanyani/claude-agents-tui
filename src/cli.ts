@@ -146,15 +146,15 @@ function runLive(opts: Options): void {
         lines.push(scroll + i === selected ? selectRow(r.text, width, style) : unselectedRow(r.text));
       });
     }
-    while (lines.length < height - 1 - detailH) lines.push('');
+    while (lines.length < height - 2 - detailH) lines.push('');
     const detail = rows.find((r) => r.key === selectedKey)?.detail;
     if (detailH && detail) lines.push(...detailBox(detail, width, detailH, style));
 
-    lines.length = Math.min(lines.length, height - 1);
-    lines.push(footer(style, mode));
+    lines.length = Math.min(lines.length, height - 2);
+    lines.push(rule(width, style), footer(style, mode));
     layout = { listTop: 2, listH, footerRow: lines.length - 1, style };
     // Synchronized update (ignored by terminals that do not support it) avoids tearing.
-    out.write('\x1b[?2026h' + compose(lines, height, style) + '\x1b[?2026l');
+    out.write('\x1b[?2026h' + compose(lines, height) + '\x1b[?2026l');
   };
 
   const refresh = () => {

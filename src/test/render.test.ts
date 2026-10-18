@@ -4,7 +4,6 @@ import {
   agentLook,
   buildRows,
   C,
-  bg,
   detailBox,
   duration,
   emptyState,
@@ -199,17 +198,15 @@ describe('compose (writing a frame to the terminal)', () => {
   });
 
   test('full-width lines keep their last character', () => {
-    for (const style of [plain, color]) {
-      const vt = new VirtualTerminal(W, H);
-      vt.write(compose(full, H, style));
-      assert.deepEqual(vt.text(), full);
-    }
+    const vt = new VirtualTerminal(W, H);
+    vt.write(compose(full, H));
+    assert.deepEqual(vt.text(), full);
   });
 
   test('a redraw replaces longer old content', () => {
     const vt = new VirtualTerminal(W, H);
-    vt.write(compose(full, H, plain));
-    vt.write(compose(['x', 'y'], H, plain));
+    vt.write(compose(full, H));
+    vt.write(compose(['x', 'y'], H));
     assert.deepEqual(vt.text(), ['x', 'y', '', '']);
   });
 
@@ -218,16 +215,18 @@ describe('compose (writing a frame to the terminal)', () => {
     const tree = [session([agent('a', 'running', { state: state({ current: 'Grep ' + 'x'.repeat(200) }) })])];
     const lines = [header(tree, '/some/root', NOW, width, color), ...buildRows(tree, NOW, width, color).map((r) => r.text)];
     const vt = new VirtualTerminal(width, lines.length);
-    vt.write(compose(lines, lines.length, color));
+    vt.write(compose(lines, lines.length));
     const strip = (s: string) => s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/ +$/, '');
     assert.deepEqual(vt.text(), lines.map(strip));
     assert.match(vt.text()[0], /\d\d:\d\d:\d\d$/, 'clock is not cut off');
   });
 
-  test('with colour, the background is re-applied after every reset', () => {
-    const out = compose(['\x1b[1mbold\x1b[0m plain'], 1, color);
-    assert.ok(out.includes(`\x1b[0m\x1b[${bg(C.bg)}m plain`));
-    assert.doesNotMatch(compose(['x'], 1, plain), /48;2/);
+  test('nothing paints a background, so the terminal theme shows through', () => {
+    const tree = [session([agent('a', 'running'), agent('b', 'done'), agent('c', 'idle')], 'done')];
+    const all = [header(tree, '/r', NOW, 120, color), selectRow('x', 120, color), footer(color), footer(color, 'space')]
+      .concat(buildRows(tree, NOW, 120, color).map((r) => r.text))
+      .join('');
+    assert.doesNotMatch(all, /48;2;/);
   });
 });
 
@@ -248,10 +247,10 @@ describe('header', () => {
 });
 
 describe('chrome', () => {
-  test('selected rows fill the width with the accent bar', () => {
+  test('selected rows get the accent bar in front', () => {
     const s = selectRow('hello', 40, color);
-    assert.equal(visibleLength(s), 40);
-    assert.ok(s.startsWith(`\x1b[${fg(C.accent)}m▌`));
+    assert.equal(visibleLength(s), 'hello'.length + 2);
+    assert.ok(s.startsWith(`\x1b[1;${fg(C.accent)}m▌`));
   });
 
   test('plain selection uses a › marker', () => {
@@ -310,9 +309,9 @@ describe('chrome', () => {
   });
 
   test('footer lists the keys', () => {
-    assert.equal(footer(plain), '↑/↓ select · enter details · tab space view · q quit');
-    assert.equal(footer(plain, 'space'), 'arrows move · enter details · tab tree view · q quit');
-    assert.match(footer(color).replace(/\x1b\[[0-9;]*m/g, ''), /↑↓ +select +⏎ +details +⇥ +space view +q +quit/);
-    assert.match(footer(color, 'space').replace(/\x1b\[[0-9;]*m/g, ''), /←↑↓→ +move .*⇥ +tree view/);
+    assert.equal(footer(plain), 'tab space view · ↑/↓ select · enter details · q quit');
+    assert.equal(footer(plain, 'space'), 'tab tree view · arrows select · enter details · q quit');
+    assert.equal(footer(color).replace(/\x1b\[[0-9;]*m/g, ''), ' Tab space view     ↑↓ select     ⏎ details     q quit');
+    assert.equal(footer(color, 'space').replace(/\x1b\[[0-9;]*m/g, ''), ' Tab tree view     ←↑↓→ select     ⏎ details     q quit');
   });
 });
