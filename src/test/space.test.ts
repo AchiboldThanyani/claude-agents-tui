@@ -162,6 +162,57 @@ describe('Space layout', () => {
   });
 });
 
+describe('Space hit-testing', () => {
+  function settled() {
+    const space = new Space();
+    space.sync(team(), 100, 24);
+    return space;
+  }
+
+  /** Canvas cell of a node's icon (its card centre). */
+  function centre(space: Space, key: string) {
+    const p = space.position(key)!;
+    return { col: Math.round(p.x), row: Math.round(p.y / 2) };
+  }
+
+  test('a click on a card finds that node', () => {
+    const space = settled();
+    for (const n of space.graph.nodes) {
+      const { col, row } = centre(space, n.key);
+      assert.equal(space.hit(col, row), n.key);
+      assert.equal(space.hit(col - 4, row - 1), n.key, 'top-left corner');
+      assert.equal(space.hit(col + 4, row + 1), n.key, 'bottom-right corner');
+    }
+  });
+
+  test('a click on a label finds its node', () => {
+    const space = settled();
+    const { col, row } = centre(space, 'agent:plan');
+    assert.equal(space.hit(col, row + 2), 'agent:plan'); // "Plan" under the card
+  });
+
+  test('empty space finds nothing', () => {
+    const space = settled();
+    const lines = space.render(plain);
+    for (let row = 0; row < lines.length; row++) {
+      const col = [...lines[row]].findIndex((c) => c === ' ');
+      if (col >= 0 && lines.every((l) => l[col] === ' ')) {
+        assert.equal(space.hit(col, row), undefined);
+        return;
+      }
+    }
+  });
+
+  test('the hit matches what is drawn', () => {
+    const space = settled();
+    const lines = space.render(plain);
+    for (const n of space.graph.nodes) {
+      const { col, row } = centre(space, n.key);
+      assert.equal([...lines[row]][col], n.icon, `${n.key} icon is where hit() looks`);
+    }
+  });
+});
+
 describe('Space rendering', () => {
   function rendered(style: { color: boolean; frame?: number }, selected?: string, cols = 100, rows = 24) {
     const space = new Space();

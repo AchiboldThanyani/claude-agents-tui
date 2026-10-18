@@ -10,6 +10,7 @@ import {
   fg,
   fit,
   footer,
+  footerButtons,
   header,
   selectRow,
   visibleLength,
@@ -244,6 +245,21 @@ describe('chrome', () => {
     assert.ok(lines.some((l) => l.trim() === 'Transcript folder not found'));
     const title = lines.find((l) => l.trim() === 'No agents yet')!;
     assert.equal(title.indexOf('N'), Math.floor((80 - 'No agents yet'.length) / 2));
+  });
+
+  test('footer buttons cover their labels, with and without colour', () => {
+    for (const style of [plain, color]) {
+      for (const mode of ['tree', 'space'] as const) {
+        const text = footer(style, mode).replace(/\x1b\[[0-9;]*m/g, '');
+        const at = (action: string) => {
+          const b = footerButtons(style, mode).find((b) => b.action === action)!;
+          return text.slice(b.from, b.to);
+        };
+        assert.match(at('details'), /details$/);
+        assert.match(at('toggle-view'), mode === 'tree' ? /space view$/ : /tree view$/);
+        assert.match(at('quit'), /quit$/);
+      }
+    }
   });
 
   test('footer lists the keys', () => {

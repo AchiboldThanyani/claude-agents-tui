@@ -342,19 +342,54 @@ export function detailBox(d: Row['detail'], width: number, height: number, style
   return lines;
 }
 
-export function footer(style: Style, mode: 'tree' | 'space' = 'tree'): string {
-  const key = (k: string) => paint(` ${k} `, `${fg(C.text)};${bg(C.surface)}`, style);
-  const label = (t: string) => paint(t, fg(C.muted), style);
-  const other = mode === 'tree' ? 'space view' : 'tree view';
-  if (!style.color) {
-    return `${mode === 'tree' ? '↑/↓ select' : 'arrows move'} · enter details · tab ${other} · q quit`;
-  }
+export type FooterAction = 'details' | 'toggle-view' | 'quit';
+
+interface FooterPart {
+  key: string;
+  plainKey: string;
+  label: string;
+  action?: FooterAction;
+}
+
+function footerParts(mode: 'tree' | 'space'): FooterPart[] {
   return [
-    mode === 'tree' ? key('↑↓') + label(' select') : key('←↑↓→') + label(' move'),
-    key('⏎') + label(' details'),
-    key('⇥') + label(' ' + other),
-    key('q') + label(' quit'),
-  ].join('   ');
+    mode === 'tree' ? { key: '↑↓', plainKey: '↑/↓', label: 'select' } : { key: '←↑↓→', plainKey: 'arrows', label: 'move' },
+    { key: '⏎', plainKey: 'enter', label: 'details', action: 'details' },
+    { key: '⇥', plainKey: 'tab', label: mode === 'tree' ? 'space view' : 'tree view', action: 'toggle-view' },
+    { key: 'q', plainKey: 'q', label: 'quit', action: 'quit' },
+  ];
+}
+
+const FOOTER_SEP = { color: '   ', plain: ' · ' };
+
+function footerPieces(style: Style, mode: 'tree' | 'space'): Array<{ text: string; width: number; action?: FooterAction }> {
+  return footerParts(mode).map((p) =>
+    style.color
+      ? {
+          text: paint(` ${p.key} `, `${fg(C.text)};${bg(C.surface)}`, style) + paint(` ${p.label}`, fg(C.muted), style),
+          width: p.key.length + 3 + p.label.length,
+          action: p.action,
+        }
+      : { text: `${p.plainKey} ${p.label}`, width: p.plainKey.length + 1 + p.label.length, action: p.action },
+  );
+}
+
+export function footer(style: Style, mode: 'tree' | 'space' = 'tree'): string {
+  return footerPieces(style, mode)
+    .map((p) => p.text)
+    .join(style.color ? FOOTER_SEP.color : FOOTER_SEP.plain);
+}
+
+/** Column ranges [from, to) of the clickable footer buttons. */
+export function footerButtons(style: Style, mode: 'tree' | 'space' = 'tree'): Array<{ from: number; to: number; action: FooterAction }> {
+  const sep = (style.color ? FOOTER_SEP.color : FOOTER_SEP.plain).length;
+  const buttons: Array<{ from: number; to: number; action: FooterAction }> = [];
+  let x = 0;
+  for (const p of footerPieces(style, mode)) {
+    if (p.action) buttons.push({ from: x, to: x + p.width, action: p.action });
+    x += p.width + sep;
+  }
+  return buttons;
 }
 
 /** Centred placeholder, like the extension's empty canvas hint. */

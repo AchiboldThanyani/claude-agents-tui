@@ -245,6 +245,21 @@ export class Space {
     this.energy = energy;
   }
 
+  /** The node drawn at a canvas cell (its card or its two label lines), topmost first. */
+  hit(col: number, row: number, selectedKey?: string): string | undefined {
+    const ordered = [...this.graph.nodes].sort((a, b) => Number(b.key === selectedKey) - Number(a.key === selectedKey));
+    for (const n of ordered) {
+      const b = this.bodies.get(n.key)!;
+      const left = Math.round(b.x) - Math.floor(CARD_W / 2);
+      const top = Math.round(b.y / 2) - 1;
+      if (col >= left && col < left + CARD_W && row >= top && row < top + CARD_H) return n.key;
+      const label = clip(row === top + 3 ? n.label : row === top + 4 ? n.sublabel : '', LABEL_W);
+      const start = Math.round(b.x - label.length / 2);
+      if (label && col >= start && col < start + label.length) return n.key;
+    }
+    return undefined;
+  }
+
   /** Node nearest to the selected one in a direction, for arrow-key navigation. */
   nearest(fromKey: string, dir: 'left' | 'right' | 'up' | 'down'): string | undefined {
     const from = this.bodies.get(fromKey);

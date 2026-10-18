@@ -2,8 +2,9 @@
 import * as fs from 'fs';
 import { isActive, SessionInfo, TranscriptStore } from './transcripts';
 import { resolveRoot } from './root';
-import { buildRows, detailBox, emptyState, footer, header, Row, rule, selectRow, Style, unselectedRow } from './render';
+import { buildRows, detailBox, emptyState, footer, footerButtons, header, Row, rule, selectRow, Style, unselectedRow } from './render';
 import { Space } from './space';
+import { isMouseInput, MOUSE_OFF, MOUSE_ON, parseMouse } from './input';
 
 const HELP = `claude-agents — watch Claude Code sessions and their subagents
 
@@ -16,10 +17,13 @@ Usage: claude-agents [options]
   --space           start in the space view (agents floating on a canvas)
   --once            print one snapshot and exit
   --no-color        disable colors (also honours NO_COLOR)
+  --no-mouse        do not capture the mouse (keeps normal text selection)
   -h, --help        show this help
 
 Keys: tab switch tree/space view · ↑/↓ (or arrows in space view) select
       enter show/hide details · q quit
+Mouse: click to select, click again for details, click the footer keys,
+       wheel to move through the tree
 `;
 
 interface Options {
@@ -29,6 +33,7 @@ interface Options {
   once: boolean;
   color: boolean;
   space: boolean;
+  mouse: boolean;
 }
 
 function parseDuration(s: string): number {
@@ -46,6 +51,7 @@ function parseArgs(argv: string[]): Options {
     once: false,
     color: !process.env.NO_COLOR,
     space: false,
+    mouse: true,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -63,6 +69,7 @@ function parseArgs(argv: string[]): Options {
     else if (a === '--once') opts.once = true;
     else if (a === '--no-color') opts.color = false;
     else if (a === '--space') opts.space = true;
+    else if (a === '--no-mouse') opts.mouse = false;
     else throw new Error(`unknown option: ${a}`);
   }
   opts.root = resolveRoot(root).root;
@@ -109,6 +116,8 @@ function runLive(opts: Options): void {
   let frame = 0;
   let mode: 'tree' | 'space' = opts.space ? 'space' : 'tree';
   const space = new Space();
+  // Where things were drawn last frame, for mouse hit-testing.
+  let layout = { listTop: 2, listH: 0, footerRow: 0, style: { color: opts.color } as Style };
 
   const draw = () => {
     const width = out.columns || 100;
@@ -143,6 +152,7 @@ function runLive(opts: Options): void {
 
     lines.length = Math.min(lines.length, height - 1);
     lines.push(footer(style, mode));
+    layout = { listTop: 2, listH, footerRow: lines.length - 1, style };
     // Synchronized update (ignored by terminals that do not support it) avoids tearing.
     out.write('\x1b[?2026h\x1b[H' + lines.map((l) => l + '\x1b[K').join('\n') + '\x1b[J\x1b[?2026l');
   };
@@ -154,22 +164,51 @@ function runLive(opts: Options): void {
 
   const anythingRunning = () => snap.sessions.some((s) => s.status === 'running' || s.agents.some(isActive));
 
+  const restore = () => out.write((opts.mouse ? MOUSE_OFF : '') + '\x1b[?25h\x1b[?1049l');
+
   const quit = () => {
-    out.write('\x1b[?25h\x1b[?1049l');
+    restore();
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
     process.exit(0);
   };
 
-  out.write('\x1b[?1049h\x1b[?25l');
+  /** Click on a row or card selects it; clicking the selection again toggles details. */
+  const click = (x: number, y: number) => {
+    if (y === layout.footerRow) {
+      const button = footerButtons(layout.style, mode).find((b) => x >= b.from && x < b.to);
+      if (button?.action === 'quit') return quit();
+      if (button?.action === 'details') showDetail = !showDetail;
+      if (button?.action === 'toggle-view') mode = mode === 'tree' ? 'space' : 'tree';
+      return;
+    }
+    if (y < layout.listTop || y >= layout.listTop + layout.listH || !rows.length) return;
+    const key = mode === 'space' ? space.hit(x, y - layout.listTop, selectedKey) : rows[scroll + y - layout.listTop]?.key;
+    if (!key) return;
+    if (key === selectedKey) showDetail = !showDetail;
+    else selectedKey = key;
+  };
+
+  out.write('\x1b[?1049h\x1b[?25l' + (opts.mouse ? MOUSE_ON : ''));
   process.on('SIGINT', quit);
   process.on('SIGTERM', quit);
-  process.on('exit', () => out.write('\x1b[?25h\x1b[?1049l'));
+  process.on('exit', restore);
   out.on('resize', draw);
 
   process.stdin.setRawMode(true);
   process.stdin.resume();
   process.stdin.on('data', (buf) => {
     const k = buf.toString();
+    if (isMouseInput(k)) {
+      for (const e of parseMouse(k)) {
+        if (e.kind === 'click') click(e.x, e.y);
+        else if (mode === 'tree') {
+          const i = e.dir === 'up' ? Math.max(0, selected - 1) : Math.min(rows.length - 1, selected + 1);
+          selectedKey = rows[i]?.key ?? selectedKey;
+          selected = i;
+        }
+      }
+      return draw();
+    }
     if (k === 'q' || k === '\x03') return quit();
     const arrow = ({ '\x1b[A': 'up', k: 'up', '\x1b[B': 'down', j: 'down', '\x1b[D': 'left', h: 'left', '\x1b[C': 'right', l: 'right' } as const)[
       k as 'k'

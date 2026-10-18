@@ -52,6 +52,16 @@ claude-agents --once             # print one snapshot and exit (also used when p
 | `Enter` | show/hide the selected agent's recent activity | same |
 | `q` | quit | quit |
 
+**Mouse:** click a row or card to select it, click it again to show its
+details, click the footer keys (`⏎ details`, `⇥ space view`, `q quit`), and
+use the wheel to move through the tree. While the mouse is captured, hold
+`Shift` to select text, or start with `--no-mouse`.
+
+Clicks work in terminals on Linux, macOS and WSL. On native Windows (running
+`claude-agents` from PowerShell or cmd), Node's console input currently passes
+keys through but not mouse events, so use the keyboard there, or run it from
+WSL.
+
 ### Space view
 
 ![The space view: agents float as cards linked to the agent that spawned them](https://raw.githubusercontent.com/AchiboldThanyani/claude-agents-tui/master/docs/space.png)
