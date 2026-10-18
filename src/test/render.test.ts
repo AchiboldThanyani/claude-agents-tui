@@ -247,7 +247,9 @@ describe('chrome', () => {
   });
 
   test('footer lists the keys', () => {
-    assert.equal(footer(plain), '↑/↓ select · enter details · q quit');
-    assert.match(footer(color).replace(/\x1b\[[0-9;]*m/g, ''), /↑↓ +select +⏎ +details +q +quit/);
+    assert.equal(footer(plain), '↑/↓ select · enter details · tab space view · q quit');
+    assert.equal(footer(plain, 'space'), 'arrows move · enter details · tab tree view · q quit');
+    assert.match(footer(color).replace(/\x1b\[[0-9;]*m/g, ''), /↑↓ +select +⏎ +details +⇥ +space view +q +quit/);
+    assert.match(footer(color, 'space').replace(/\x1b\[[0-9;]*m/g, ''), /←↑↓→ +move .*⇥ +tree view/);
   });
 });

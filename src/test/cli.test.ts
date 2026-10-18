@@ -39,6 +39,25 @@ describe('cli --once', () => {
     assert.doesNotMatch(stdout, /\x1b\[/, 'no ANSI codes with --no-color');
   });
 
+  test('--space prints the settled space view', () => {
+    const now = Date.now();
+    fake.writeSession('proj', 's1', [
+      userPrompt('build it', iso(now), 'C:\\code\\demo-app'),
+      toolUse('toolu_A', 'Agent', { description: 'Find code' }, iso(now)),
+      title('Demo session'),
+    ]);
+    fake.writeAgent('proj', 's1', 'a1', { agentType: 'Explore', description: 'Find code', toolUseId: 'toolu_A' }, [
+      toolUse('t1', 'Grep', { pattern: 'authenticate' }, iso(now)),
+    ]);
+
+    const { code, stdout } = run('--once', '--space', '--no-color', '--root', fake.root);
+    assert.equal(code, 0);
+    assert.match(stdout, /╭─────●─╮/, 'running card with its status mark');
+    assert.match(stdout, /◎/);
+    assert.match(stdout, /Demo session/);
+    assert.doesNotMatch(stdout, /└─/, 'no tree connectors in the space view');
+  });
+
   test('--project filters sessions', () => {
     const now = Date.now();
     fake.writeSession('a', 's1', [userPrompt('one', iso(now), 'C:\\work\\extension'), reply('ok', iso(now)), title('First')]);

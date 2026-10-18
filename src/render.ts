@@ -53,7 +53,7 @@ export const BOLD = '1';
 const ITALIC = '3';
 
 /** `color` laid over `base` at `alpha` opacity, like the extension's rgba() tints. */
-function tint(color: string, alpha: number, base = C.bg): string {
+export function tint(color: string, alpha: number, base = C.bg): string {
   const a = rgb(color);
   const b = rgb(base);
   return '#' + a.map((v, i) => Math.round(v * alpha + b[i] * (1 - alpha)).toString(16).padStart(2, '0')).join('');
@@ -342,11 +342,19 @@ export function detailBox(d: Row['detail'], width: number, height: number, style
   return lines;
 }
 
-export function footer(style: Style): string {
+export function footer(style: Style, mode: 'tree' | 'space' = 'tree'): string {
   const key = (k: string) => paint(` ${k} `, `${fg(C.text)};${bg(C.surface)}`, style);
   const label = (t: string) => paint(t, fg(C.muted), style);
-  if (!style.color) return '↑/↓ select · enter details · q quit';
-  return [key('↑↓') + label(' select'), key('⏎') + label(' details'), key('q') + label(' quit')].join('   ');
+  const other = mode === 'tree' ? 'space view' : 'tree view';
+  if (!style.color) {
+    return `${mode === 'tree' ? '↑/↓ select' : 'arrows move'} · enter details · tab ${other} · q quit`;
+  }
+  return [
+    mode === 'tree' ? key('↑↓') + label(' select') : key('←↑↓→') + label(' move'),
+    key('⏎') + label(' details'),
+    key('⇥') + label(' ' + other),
+    key('q') + label(' quit'),
+  ].join('   ');
 }
 
 /** Centred placeholder, like the extension's empty canvas hint. */

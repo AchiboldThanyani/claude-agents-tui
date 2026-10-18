@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { isActive, SessionInfo, TranscriptStore } from './transcripts';
 import { resolveRoot } from './root';
 import { buildRows, detailBox, emptyState, footer, header, Row, rule, selectRow, Style, unselectedRow } from './render';
+import { Space } from './space';
 
 const HELP = `claude-agents — watch Claude Code sessions and their subagents
 
@@ -12,11 +13,13 @@ Usage: claude-agents [options]
   --project <text>  only show sessions whose project folder contains <text>
   --root <dir>      transcript folder (default $CLAUDE_CONFIG_DIR/projects or ~/.claude/projects;
                     in WSL, falls back to the Windows C:\\Users\\<you>\\.claude\\projects)
+  --space           start in the space view (agents floating on a canvas)
   --once            print one snapshot and exit
   --no-color        disable colors (also honours NO_COLOR)
   -h, --help        show this help
 
-Keys: ↑/↓ or j/k select · enter show/hide details · q quit
+Keys: tab switch tree/space view · ↑/↓ (or arrows in space view) select
+      enter show/hide details · q quit
 `;
 
 interface Options {
@@ -25,6 +28,7 @@ interface Options {
   root: string;
   once: boolean;
   color: boolean;
+  space: boolean;
 }
 
 function parseDuration(s: string): number {
@@ -41,6 +45,7 @@ function parseArgs(argv: string[]): Options {
     root: '',
     once: false,
     color: !process.env.NO_COLOR,
+    space: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -57,6 +62,7 @@ function parseArgs(argv: string[]): Options {
     else if (a === '--root') root = value();
     else if (a === '--once') opts.once = true;
     else if (a === '--no-color') opts.color = false;
+    else if (a === '--space') opts.space = true;
     else throw new Error(`unknown option: ${a}`);
   }
   opts.root = resolveRoot(root).root;
@@ -81,7 +87,13 @@ function runOnce(opts: Options): void {
   const rows = buildRows(sessions, now, width, style);
   const lines = [header(sessions, opts.root, now, width, style), rule(width, style)];
   if (!rows.length) lines.push(emptyMessage(opts));
-  lines.push(...rows.map((r) => r.text));
+  else if (opts.space) {
+    const height = Math.max(12, (process.stdout.rows || Number(process.env.LINES) || 24) - 3);
+    const space = new Space();
+    space.sync(sessions, width, height);
+    space.settle();
+    lines.push(...space.render(style));
+  } else lines.push(...rows.map((r) => r.text));
   process.stdout.write(lines.join('\n') + '\n');
 }
 
@@ -95,6 +107,8 @@ function runLive(opts: Options): void {
   let showDetail = false;
   let scroll = 0;
   let frame = 0;
+  let mode: 'tree' | 'space' = opts.space ? 'space' : 'tree';
+  const space = new Space();
 
   const draw = () => {
     const width = out.columns || 100;
@@ -111,16 +125,24 @@ function runLive(opts: Options): void {
     const listH = Math.max(1, height - lines.length - 2 - detailH);
 
     if (!rows.length) lines.push(...emptyState(emptyMessage(opts), width, listH, style));
-    if (selected < scroll) scroll = selected;
-    if (selected >= scroll + listH) scroll = selected - listH + 1;
-    rows.slice(scroll, scroll + listH).forEach((r, i) => {
-      lines.push(scroll + i === selected ? selectRow(r.text, width, style) : unselectedRow(r.text));
-    });
+    else if (mode === 'space') {
+      space.sync(snap.sessions, width, listH);
+      // The selection may be a finished agent the space view had no room for.
+      if (!space.position(selectedKey)) selectedKey = space.graph.nodes[0]?.key ?? selectedKey;
+      lines.push(...space.render(style, selectedKey));
+    } else {
+      if (selected < scroll) scroll = selected;
+      if (selected >= scroll + listH) scroll = selected - listH + 1;
+      rows.slice(scroll, scroll + listH).forEach((r, i) => {
+        lines.push(scroll + i === selected ? selectRow(r.text, width, style) : unselectedRow(r.text));
+      });
+    }
     while (lines.length < height - 1 - detailH) lines.push('');
-    if (detailH) lines.push(...detailBox(rows[selected].detail, width, detailH, style));
+    const detail = rows.find((r) => r.key === selectedKey)?.detail;
+    if (detailH && detail) lines.push(...detailBox(detail, width, detailH, style));
 
     lines.length = Math.min(lines.length, height - 1);
-    lines.push(footer(style));
+    lines.push(footer(style, mode));
     // Synchronized update (ignored by terminals that do not support it) avoids tearing.
     out.write('\x1b[?2026h\x1b[H' + lines.map((l) => l + '\x1b[K').join('\n') + '\x1b[J\x1b[?2026l');
   };
@@ -149,20 +171,29 @@ function runLive(opts: Options): void {
   process.stdin.on('data', (buf) => {
     const k = buf.toString();
     if (k === 'q' || k === '\x03') return quit();
-    if (k === '\x1b[A' || k === 'k') selected = Math.max(0, selected - 1);
-    else if (k === '\x1b[B' || k === 'j') selected = Math.min(rows.length - 1, selected + 1);
+    const arrow = ({ '\x1b[A': 'up', k: 'up', '\x1b[B': 'down', j: 'down', '\x1b[D': 'left', h: 'left', '\x1b[C': 'right', l: 'right' } as const)[
+      k as 'k'
+    ];
+    if (k === '\t') mode = mode === 'tree' ? 'space' : 'tree';
     else if (k === '\r' || k === '\n') showDetail = !showDetail;
     else if (k === '\x1b') showDetail = false;
-    selectedKey = rows[selected]?.key ?? '';
+    else if (arrow && mode === 'space') selectedKey = space.nearest(selectedKey, arrow) ?? selectedKey;
+    else if (arrow === 'up') selectedKey = rows[Math.max(0, selected - 1)]?.key ?? selectedKey;
+    else if (arrow === 'down') selectedKey = rows[Math.min(rows.length - 1, selected + 1)]?.key ?? selectedKey;
     draw();
   });
 
   draw();
   setInterval(refresh, 1000);
-  // Spinner at ~10 fps, only while something is running.
+  // ~10 fps for the spinner and the floating layout; idle when nothing moves.
   setInterval(() => {
     frame++;
-    if (opts.color && anythingRunning()) draw();
+    let moving = false;
+    if (mode === 'space') {
+      space.step(2);
+      moving = space.energy > 0.05;
+    }
+    if (moving || (opts.color && anythingRunning())) draw();
   }, 100);
 }
 

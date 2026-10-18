@@ -38,13 +38,33 @@ npm link          # optional: puts `claude-agents` on your PATH
 
 ```sh
 claude-agents                    # live view, refreshes every second
+claude-agents --space            # start in the space view
 claude-agents --since 6h         # widen the time window (default 1h)
 claude-agents --project extension
 claude-agents --once             # print one snapshot and exit (also used when piped)
 ```
 
-Keys: `↑/↓` or `j/k` select, `enter` shows the selected row's recent activity,
-`q` quits.
+| Key | Tree view | Space view |
+|---|---|---|
+| `Tab` | switch to space view | switch to tree view |
+| `↑/↓` or `j/k` | select row | move to the nearest agent above/below |
+| `←/→` or `h/l` | | move to the nearest agent left/right |
+| `Enter` | show/hide the selected agent's recent activity | same |
+| `q` | quit | quit |
+
+### Space view
+
+![The space view: agents float as cards linked to the agent that spawned them](https://raw.githubusercontent.com/AchiboldThanyani/claude-agents-tui/master/docs/space.png)
+
+Agents float on a canvas like the extension's graph, laid out by the same
+force simulation: cards push each other apart, links pull each agent towards
+the one that spawned it, and everything drifts to a stop. Running agents spin
+and have two arcs chasing round their border; links to the selected agent
+light up.
+
+A terminal only has room for so many cards, so when there are too many the
+oldest finished agents are hidden first (the count is shown bottom-left).
+Switch to the tree view with `Tab` to see everything.
 
 ### Which folder it reads
 
@@ -80,6 +100,8 @@ in each `agent-<id>.meta.json`.
 - `src/transcripts.ts` tails each JSONL file from its last offset and folds new
   lines into a small summary (status, current tool, tool count, tokens).
 - `src/render.ts` turns the summaries into tree rows.
+- `src/space.ts` lays out the space view (force simulation) and draws it on a
+  character canvas, with links in braille dots.
 - `src/cli.ts` handles options, keys and redraws using plain ANSI codes.
 
 ## Tests
